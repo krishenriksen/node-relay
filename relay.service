@@ -1,0 +1,13 @@
+[Unit]
+Description=Node relay service
+Requires=docker.service
+After=docker.service
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/docker run --rm --privileged -p 8180:80 --name node-relay node-relay
+
+RestartSec=2min
+
+[Install]
+WantedBy=multi-user.target 

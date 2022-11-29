@@ -1,0 +1,24 @@
+{
+    "name": "node-relay",
+    "version": "0.0.1",
+    "description": "A websocket ethernet switch built using Node.js",
+    "main": "relay.js",
+    "private": true,
+    "scripts": {
+        "start": "node relay.js"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/krishenriksen/node-relay.org.git"
+    },
+    "author": "Kris Henriksen",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/krishenriksen/node-relay/issues"
+    },
+    "homepage": "https://www.bloqifi.com/",
+    "dependencies": {
+        "ws": "^8.11.0",
+        "tuntap2": "git://github.com/PupilTong/node-tuntap2.git"
+    }
+}
