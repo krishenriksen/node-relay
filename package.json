@@ -19,6 +19,6 @@
     "homepage": "https://www.bloqifi.com/",
     "dependencies": {
         "ws": "^8.11.0",
-        "tuntap2": "git://github.com/PupilTong/node-tuntap2.git"
+        "tuntap2": "git://github.com/bloqcoin/node-tuntap2.git"
     }
 }

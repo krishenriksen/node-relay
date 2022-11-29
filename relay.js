@@ -16,25 +16,6 @@ console.log(`created tap: ${tap.name}, ip: ${tap.ipv4}, mtu: ${tap.mtu}`);
 // Use emitter.setMaxListeners() to increase limit
 tap.setMaxListeners(0);
 
-const heartbeat = () => {
-
-	this.isAlive = true;
-};
-
-const interval = setInterval(function ping() {
-
-	wss.clients.forEach(function each(ws) {
-
-		if (ws.isAlive === false) {
-			
-			return ws.terminate();
-		}
-
-		ws.isAlive = false;
-		ws.ping();
-	});
-}, 30000);
-
 const wss = new WebSocket.Server({
 	port: 80,
 	perMessageDeflate: {
@@ -55,40 +36,90 @@ const wss = new WebSocket.Server({
 	}
 });
 
+const equals = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+function* hexFormatValues(buffer) {
+	for (let x of buffer) {
+		const hex = x.toString(16)
+		yield hex.padStart(2, '0')
+	}
+}
+
+const BROADCAST = ['ff', 'ff', 'ff', 'ff', 'ff', 'ff'];
+
 wss.on('connection', (ws, req) => {
 
-	ws.isAlive = true;
-	ws.on('pong', heartbeat);
+	ws.ip = req.socket.remoteAddress;
 
-	let ip = req.socket.remoteAddress;
+	if (!ws.ip) {
 
-	if (!ip) {
-
-		ip = req.headers['x-forwarded-for'].split(',')[0].trim();
+		ws.ip = req.headers['X-Forwarded-For'].split(',')[0].trim();
 	}
 
-	// TODO - find mac address of client
-	// implement rate limiting, as connection is fast enough now.
-
-	console.log('client connected: %s', ip);
+	console.log('client connected: %s', ws.ip);
 
 	if (tap) {
 
 		ws.on('message', (buf) => {
 
+			if (!ws.mac) {
+
+				ws.mac = [];
+
+				for (let hex of hexFormatValues(new Int32Array(buf.slice(6, 12)))) {
+					ws.mac.push(hex);
+				}
+	
+				console.log('using mac:', ws.mac.join(':'), ws.ip);
+			}
+
 			tap.write(buf);
 		});
 
-		tap.on('data', (buf) => {
-	
-			ws.send(buf);
+		tap.on('data', async (buf) => {
+
+			const macs = [];
+
+			// MTU doesn't include header or CRC32
+			for (let hex of hexFormatValues(new Int32Array(buf.slice(0, tap.mtu + 18)))) {
+				macs.push(hex);
+			}
+
+			const chunks = macs.reduce((resultArray, item, index) => {
+
+				const chunkIndex = Math.floor(index / 6);
+
+				if (!resultArray[chunkIndex]) {
+
+					resultArray[chunkIndex] = []; // start a new chunk
+				}
+
+				resultArray[chunkIndex].push(item);
+
+				return resultArray;
+			}, [])
+
+			let broadcast = false;
+
+			await Promise.all(chunks.map((chunk) => {
+
+				if (equals(chunk, BROADCAST) === true) {
+
+					broadcast = true;
+
+					wss.clients.forEach(function each(ws) {
+
+						ws.send(buf);
+					});
+				}
+			}));
+
+			if (broadcast === false) {
+
+				ws.send(buf);
+			}
 		});
 	}
-});
-
-wss.on('close', function close() {
-
-	clearInterval(interval);
 });
 
 wss.on('error', (e) => {
