@@ -43,3 +43,8 @@ For better security be sure to set up an Nginx reverse proxy with SSL support
 along with a more isolated docker bridge and some host-side firewall rules
 which prevent clients of your relay from attempting to connect to your host
 machine.
+
+## Restricting clients allowed to connect based on mac address
+
+Before building, edit `relay.js` and set ALLOWED_MAC to the mac addresses of your clients.
+This will make sure that no data from any other mac address is written to tap device.

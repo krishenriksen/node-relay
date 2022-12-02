@@ -1,5 +1,8 @@
 'use strict';
 
+const ALLOWED_MAC = [];
+const BROADCAST = ['ff', 'ff', 'ff', 'ff', 'ff', 'ff'];
+
 const WebSocket = require('ws');
 const { Tap } = require('tuntap2');
 
@@ -45,8 +48,6 @@ function* hexFormatValues(buffer) {
 	}
 }
 
-const BROADCAST = ['ff', 'ff', 'ff', 'ff', 'ff', 'ff'];
-
 wss.on('connection', (ws, req) => {
 
 	ws.ip = req.socket.remoteAddress;
@@ -69,11 +70,30 @@ wss.on('connection', (ws, req) => {
 				for (let hex of hexFormatValues(new Int32Array(buf.slice(6, 12)))) {
 					ws.mac.push(hex);
 				}
-	
-				console.log('using mac:', ws.mac.join(':'), ws.ip);
+
+				ws.mac = ws.mac.join(':');
+
+				console.log('using mac:', ws.mac, ws.ip);
 			}
 
-			tap.write(buf);
+			let allowData = false;
+
+			if (ALLOWED_MAC.length > 0) {
+
+				if (ALLOWED_MAC.includes(ws.mac)) {
+
+					allowData = true;
+				}
+			}
+			else {
+
+				allowData = true;
+			}
+
+			if (allowData === true) {
+
+				tap.write(buf);
+			}
 		});
 
 		tap.on('data', async (buf) => {
