@@ -76,8 +76,8 @@ wss.on('connection', (ws, req) => {
 			}
 
 			const allowIp = ALLOWED_IP.length > 0 ? ALLOWED_IP.includes(ws.ip) : true;
-			const allowMac = ALLOWED_MAC.length > 0 ? ALLOWED_IP.includes(ws.mac) : true;
-			const allowOrigin = ALLOWED_ORIGIN.length > 0 ? ALLOWED_IP.includes(ws.origin) : true;
+			const allowMac = ALLOWED_MAC.length > 0 ? ALLOWED_MAC.includes(ws.mac) : true;
+			const allowOrigin = ALLOWED_ORIGIN.length > 0 ? ALLOWED_ORIGIN.includes(ws.origin) : true;
 
 			if (allowIp === true && allowMac === true && allowOrigin === true) {
 
