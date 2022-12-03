@@ -1,6 +1,8 @@
 'use strict';
 
+const ALLOWED_IP = [];
 const ALLOWED_MAC = [];
+const ALLOWED_ORIGIN = [];
 const BROADCAST = ['ff', 'ff', 'ff', 'ff', 'ff', 'ff'];
 
 const WebSocket = require('ws');
@@ -50,14 +52,11 @@ function* hexFormatValues(buffer) {
 
 wss.on('connection', (ws, req) => {
 
-	ws.ip = req.socket.remoteAddress;
-
-	if (!ws.ip) {
-
-		ws.ip = req.headers['X-Forwarded-For'].split(',')[0].trim();
-	}
+	ws.ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+	ws.origin = req.headers['origin'];
 
 	console.log('client connected: %s', ws.ip);
+	console.log('origin: %s', ws.origin);
 
 	if (tap) {
 
@@ -73,24 +72,14 @@ wss.on('connection', (ws, req) => {
 
 				ws.mac = ws.mac.join(':');
 
-				console.log('using mac:', ws.mac, ws.ip);
+				console.log('using mac: %s', ws.mac);
 			}
 
-			let allowData = false;
+			const allowIp = ALLOWED_IP.length > 0 ? ALLOWED_IP.includes(ws.ip) : true;
+			const allowMac = ALLOWED_MAC.length > 0 ? ALLOWED_IP.includes(ws.mac) : true;
+			const allowOrigin = ALLOWED_ORIGIN.length > 0 ? ALLOWED_IP.includes(ws.origin) : true;
 
-			if (ALLOWED_MAC.length > 0) {
-
-				if (ALLOWED_MAC.includes(ws.mac)) {
-
-					allowData = true;
-				}
-			}
-			else {
-
-				allowData = true;
-			}
-
-			if (allowData === true) {
+			if (allowIp === true && allowMac === true && allowOrigin === true) {
 
 				tap.write(buf);
 			}
