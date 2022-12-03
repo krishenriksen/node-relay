@@ -3,7 +3,7 @@
 const ALLOWED_IP = [];
 const ALLOWED_MAC = [];
 const ALLOWED_ORIGIN = [];
-const BROADCAST = ['ff', 'ff', 'ff', 'ff', 'ff', 'ff'];
+const BROADCAST = 'ff:ff:ff:ff:ff:ff';
 
 const WebSocket = require('ws');
 const { Tap } = require('tuntap2');
@@ -58,77 +58,56 @@ wss.on('connection', (ws, req) => {
 	console.log('client connected: %s', ws.ip);
 	console.log('origin: %s', ws.origin);
 
-	if (tap) {
+	ws.on('message', (buf) => {
 
-		ws.on('message', (buf) => {
+		if (!ws.mac) {
 
-			if (!ws.mac) {
+			ws.mac = [];
 
-				ws.mac = [];
-
-				for (let hex of hexFormatValues(new Int32Array(buf.slice(6, 12)))) {
-					ws.mac.push(hex);
-				}
-
-				ws.mac = ws.mac.join(':');
-
-				console.log('using mac: %s', ws.mac);
+			for (let hex of hexFormatValues(new Int32Array(buf.slice(6, 12)))) {
+				ws.mac.push(hex);
 			}
 
-			const allowIp = ALLOWED_IP.length > 0 ? ALLOWED_IP.includes(ws.ip) : true;
-			const allowMac = ALLOWED_MAC.length > 0 ? ALLOWED_MAC.includes(ws.mac) : true;
-			const allowOrigin = ALLOWED_ORIGIN.length > 0 ? ALLOWED_ORIGIN.includes(ws.origin) : true;
+			ws.mac = ws.mac.join(':');
 
-			if (allowIp === true && allowMac === true && allowOrigin === true) {
+			console.log('using mac: %s', ws.mac);
+		}
 
-				tap.write(buf);
-			}
-		});
+		const allowIp = ALLOWED_IP.length > 0 ? ALLOWED_IP.includes(ws.ip) : true;
+		const allowMac = ALLOWED_MAC.length > 0 ? ALLOWED_MAC.includes(ws.mac) : true;
+		const allowOrigin = ALLOWED_ORIGIN.length > 0 ? ALLOWED_ORIGIN.includes(ws.origin) : true;
 
-		tap.on('data', async (buf) => {
+		if (allowIp === true && allowMac === true && allowOrigin === true) {
 
-			const macs = [];
+			tap.write(buf);
+		}
+	});
+});
 
-			// MTU doesn't include header or CRC32
-			for (let hex of hexFormatValues(new Int32Array(buf.slice(0, tap.mtu + 18)))) {
-				macs.push(hex);
-			}
+tap.on('data', (buf) => {
 
-			const chunks = macs.reduce((resultArray, item, index) => {
+	// MTU doesn't include header or CRC32
+	const buffer = new Int32Array(buf.slice(0, tap.mtu + 18));
 
-				const chunkIndex = Math.floor(index / 6);
+	let mac = [];
 
-				if (!resultArray[chunkIndex]) {
-
-					resultArray[chunkIndex] = []; // start a new chunk
-				}
-
-				resultArray[chunkIndex].push(item);
-
-				return resultArray;
-			}, [])
-
-			let broadcast = false;
-
-			await Promise.all(chunks.map((chunk) => {
-
-				if (equals(chunk, BROADCAST) === true) {
-
-					broadcast = true;
-
-					wss.clients.forEach(function each(ws) {
-
-						ws.send(buf);
-					});
-				}
-			}));
-
-			if (broadcast === false) {
-
-				ws.send(buf);
-			}
-		});
+	for (let hex of hexFormatValues(new Int32Array(buffer.slice(0, 6)))) {
+		mac.push(hex);
 	}
+
+	mac = mac.join(':');
+
+	wss.clients.forEach(function each(ws) {
+
+		if (equals(mac, BROADCAST)) {
+
+			ws.send(buf);
+		}
+		else if (equals(mac, ws.mac)) {
+
+			ws.send(buf);
+		}
+	});
 });
 
 wss.on('error', (e) => {
